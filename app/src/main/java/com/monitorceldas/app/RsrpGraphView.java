@@ -2,17 +2,17 @@ package com.monitorceldas.app;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.view.View;
 
 /** Gráfico de los últimos ~3 minutos de RSRP con las líneas de umbral −80/−90/−100 dBm. */
 final class RsrpGraphView extends View {
-    private static final float MIN = -130f, MAX = -50f;
+    private static final float MIN = -130f, MAX = -60f;
     private float[] data = new float[0];
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint grid = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint zone = new Paint();
     private final float density;
 
     RsrpGraphView(Context c) {
@@ -33,10 +33,7 @@ final class RsrpGraphView extends View {
     }
 
     static int colorFor(float v) {
-        if (v >= -80) return Color.rgb(0, 176, 0);
-        if (v >= -90) return Color.rgb(170, 200, 0);
-        if (v >= -100) return Color.rgb(255, 152, 0);
-        return Color.rgb(229, 57, 53);
+        return Ui.rsrpColor(Math.round(v));
     }
 
     private float y(float v) {
@@ -49,7 +46,14 @@ final class RsrpGraphView extends View {
     protected void onDraw(Canvas cv) {
         super.onDraw(cv);
         float w = getWidth();
-        for (float t : new float[]{-80, -90, -100, -110, -120}) {
+        // Zonas de calidad de fondo (Tabla 1)
+        float[][] zones = {{MAX, -80}, {-80, -90}, {-90, -100}, {-100, MIN}};
+        int[] zc = {Ui.EXC, Ui.GOOD, Ui.REG, Ui.BAD};
+        for (int i = 0; i < zones.length; i++) {
+            zone.setColor((zc[i] & 0x00FFFFFF) | 0x1A000000);
+            cv.drawRect(0, y(zones[i][0]), w, y(zones[i][1]), zone);
+        }
+        for (float t : new float[]{-80, -90, -100, -110}) {
             float yy = y(t);
             cv.drawLine(0, yy, w, yy, grid);
             cv.drawText(Integer.toString((int) t), 2 * density, yy - 2 * density, text);

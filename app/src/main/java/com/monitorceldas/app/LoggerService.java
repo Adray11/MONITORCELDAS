@@ -117,6 +117,9 @@ public class LoggerService extends Service {
     private int testSeq;
     boolean testRunning;
     String testStatus = "";
+    String testPhase = "";
+    double testLive = Double.NaN;
+    long testPhaseStart;
     SpeedTest.Result lastResult;
     private SpeedTest.Result pendingResult;
     double distSinceTest;
@@ -703,6 +706,9 @@ public class LoggerService extends Service {
         testSeq++;
         testRunning = true;
         testStatus = "Iniciando…";
+        testPhase = "";
+        testLive = Double.NaN;
+        testPhaseStart = SystemClock.elapsedRealtime();
         long now = System.currentTimeMillis();
         CellReader.CellData s = snap != null ? snap.serving : null;
         boolean lv = locValid();
@@ -736,8 +742,13 @@ public class LoggerService extends Service {
                 new SpeedTest.Listener() {
                     @Override
                     public void progress(String phase, double mbps) {
-                        h.post(() -> testStatus = "T" + id + " " + phase
-                                + (Double.isNaN(mbps) ? "…" : ": " + Fmt.d(mbps, 1) + " Mbps"));
+                        h.post(() -> {
+                            if (!phase.equals(testPhase)) testPhaseStart = SystemClock.elapsedRealtime();
+                            testPhase = phase;
+                            testLive = mbps;
+                            testStatus = "T" + id + " " + phase
+                                    + (Double.isNaN(mbps) ? "…" : ": " + Fmt.d(mbps, 1) + " Mbps");
+                        });
                     }
 
                     @Override
@@ -763,6 +774,8 @@ public class LoggerService extends Service {
         distSinceTest = 0;
         lastTestEnd = SystemClock.elapsedRealtime();
         testStatus = "T" + r.id + " terminada";
+        testPhase = "";
+        testLive = Double.NaN;
         if (logging && fTests != null) {
             final OutFile f = fTests;
             final String row = "T" + r.id + ";" + Fmt.iso(r.startMs) + ";" + Fmt.iso(r.endMs) + ";" + runningCtx + ";"
